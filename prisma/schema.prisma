@@ -1,0 +1,165 @@
+// ===================================================================
+//  PRISMA SCHEMA - ToursPostgreSQL
+// ===================================================================
+//  This file is the SINGLE SOURCE OF TRUTH for our database schema.
+//  Prisma translates it into PostgreSQL DDL (tables, columns, FKs,
+//  CHECK constraints, enums, indexes...). See the `prisma/migrations`
+//  folder for the actual generated SQL.
+//
+//  Naming conventions (important for PostgreSQL):
+//  - Model names  -> PascalCase (e.g. `Tour`) , tablenames snake_case via @@map
+//  - Prisma fields -> camelCase, real DB columns snake_case via @map.
+//    This keeps the app code clean while the DB stays PostgreSQL-idiomatic.
+//
+//  Mapping to the old MongoDB/Mongoose models:
+//    userSchema   -> User      | `select:false` fields are excluded via
+//                               explicit `select` in queries instead (Prisma
+//                               has no "hidden by default" — see userModel.js).
+//    tourSchema   -> Tour + TourLocation + TourStartDate.
+//      Mongo embedded arrays (locations[], startDates[]) became their own
+//      relational tables (a PostgreSQL best practice: queryable + indexed).
+//    guides[]     -> M2M relation between Tour and User (Prisma auto-creates
+//                    a `_GuideToTour` junction table).
+//    reviewSchema -> Review with a UNIQUE (tourId, userId) index, exactly
+//                    replicating the old "one review per user per tour".
+// ===================================================================
+
+// Where the generated Prisma client is placed.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Loads ./schema.prisma -> uses DATABASE_URL from the .env file.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------
+// ENUMS
+// Native PostgreSQL ENUM types. Values are validated at the DB level
+// (equivalent to a CHECK constraint). `@map` maps `lead_guide` to the
+// exact string we want stored, `lead-guide`.
+// ------------------------------------------------------------------
+enum Role {
+  user
+  guide
+  lead_guide @map("lead-guide")
+  admin
+}
+
+enum Difficulty {
+  easy
+  medium
+  difficult
+}
+
+// ------------------------------------------------------------------
+// USER  (models/userModel.js)
+// ------------------------------------------------------------------
+model User {
+  id                   Int       @id @default(autoincrement()) // BIGSERIAL-style auto PK
+  name                 String    @map("name") // VARCHAR(191) by default
+  email                String    @unique // UNIQUE index -> used by login + duplicate detection
+  photo                String    @default("defaultpic.webp")
+  role                 Role      @default(user)
+  password             String // hashed with bcrypt, NEVER selected in normal queries
+  passChangedAt        DateTime? // tracks last password change for JWT invalidation
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  active               Boolean   @default(true) // soft-delete flag
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  reviews     Review[] // one-to-many: a user can write many reviews
+  guidedTours Tour[] // many-to-many backlink (see Tour.guides)
+
+  @@map("users") // physical table name
+}
+
+// ------------------------------------------------------------------
+// TOUR  (models/tourModel.js)
+// ------------------------------------------------------------------
+model Tour {
+  id              Int         @id @default(autoincrement())
+  name            String      @unique // UNIQUE index (old mongoose unique)
+  slug            String? // auto-generated: "the-sea-explorer"
+  duration        Int // days
+  maxGroupSize    Int
+  difficulty      Difficulty
+  ratingsAverage  Float       @default(4.5) // app-level min/max 1..5 enforced in factory/serializers
+  ratingsQuantity Int         @default(0)
+  price           Float // NOTE: floats ok for demos; production money -> Decimal
+  priceDiscount   Float? // app-level check: must be < price
+  summary         String
+  description     String?
+  imageCover      String
+  images          String[] // PostgreSQL text[] array column
+  createdAt       DateTime    @default(now()) @map("created_at")
+  premium         Boolean     @default(false) // premium tours are hidden by default scope
+  hour            Int? // computed = duration * 24
+  startLocation   Json? // JSONB (max 1 x 1.5GB tuple size limit) holds geojson-style:
+                        // { type, coordinates:[lng,lat], address, description }
+
+  startDates TourStartDate[] // 1-to-many -> enables monthly-plan aggregation
+  locations  TourLocation[] // 1-to-many -> tour stops
+  reviews    Review[] // 1-to-many -> average rating source
+  guides     User[] // M2M -> Prisma generates `_GuideToTour` junction table
+                    // (tour_guides in relational terms)
+
+  @@index([slug]) // old tourSchema.index({ slug: 1 })
+  @@map("tours")
+}
+
+// ------------------------------------------------------------------
+// TOUR STOP (old embedded `locations[]` array in Mongoose)
+// Stored as a child table: each row = { lng, lat, address, description, day }.
+// `latitude`/`longitude` split into real columns so geospatial math
+// (Haversine in tourController.getToursWithin) can run in plain SQL.
+// ------------------------------------------------------------------
+model TourLocation {
+  id          Int      @id @default(autoincrement())
+  tourId      Int      @map("tour_id")
+  description String?
+  address     String?
+  day         Int?
+  latitude    Float?
+  longitude   Float?
+  tour        Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@map("tour_locations")
+}
+
+// ------------------------------------------------------------------
+// TOUR START DATE (old embedded `startDates[]` array)
+// A separate row per departure date -> EXTRACT(MONTH/YEAR) in SQL
+// for the monthly-plan endpoint.
+// ------------------------------------------------------------------
+model TourStartDate {
+  id        Int      @id @default(autoincrement())
+  tourId    Int      @map("tour_id")
+  startDate DateTime @map("start_date")
+  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@map("tour_start_dates")
+}
+
+// ------------------------------------------------------------------
+// REVIEW  (models/reviewModel.js)
+// @@unique([tourId, userId]) = the old compound index that blocked
+// a user from reviewing the same tour twice (P2002 -> friendly error).
+// ------------------------------------------------------------------
+model Review {
+  id        Int      @id @default(autoincrement())
+  review    String
+  rating    Int // 1..5 enforced in beforeCreate/beforeUpdate
+  tourId    Int      @map("tour_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tourId, userId])
+  @@map("reviews")
+}

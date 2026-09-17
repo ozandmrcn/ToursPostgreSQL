@@ -1,0 +1,36 @@
+{
+  "name": "tours-postgresql",
+  "version": "1.0.0",
+  "description": "ToursPostgreSQL - A high-performance RESTful API for a tours management system built with Node.js, Express, PostgreSQL and Prisma ORM.",
+  "license": "ISC",
+  "author": "Ozan Demircan <ozandmrcn47@gmail.com>",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "migrate": "prisma migrate dev",
+    "deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "import": "node dev-data/data/dev-commands.js --import",
+    "delete": "node dev-data/data/dev-commands.js --delete"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.5",
+    "nodemon": "^3.1.14",
+    "sharp": "^0.34.5",
+    "validator": "^13.15.35"
+  },
+  "devDependencies": {
+    "morgan": "^1.10.1",
+    "prisma": "^6.19.3"
+  }
+}

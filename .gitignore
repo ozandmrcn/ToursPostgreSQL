@@ -1,0 +1,4 @@
+/node_modules
+.env
+public/img/users/user-*.webp
+.DS_Store

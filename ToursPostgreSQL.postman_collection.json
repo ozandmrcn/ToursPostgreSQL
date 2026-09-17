@@ -1,0 +1,315 @@
+{
+  "info": {
+    "name": "ToursPostgreSQL",
+    "description": "# ToursPostgreSQL API\n\nProfessional REST API for the Tours system backed by PostgreSQL and Prisma.\n\n---\n\n## Endpoints Overview\n\n| Service | Base Route | Key Features |\n|---|---|---|\n| **Tours** | `/api/v1/tours` | CRUD, GeoSpatial (tours-within, distances), Stats, Monthly Plan |\n| **Users** | `/api/v1/users` | Auth (signup, login), Profile (updateMe), Password Reset |\n| **Reviews** | `/api/v1/reviews` | CRUD, Nested on Tours |\n\n---\n\n## Variables\n- `baseUrl`: `http://localhost:4000/api/v1`\n- `token`: Bearer access token for users\n- `adminToken`: Bearer access token for admin\n- `tourId`: Created/selected tour ID\n- `reviewId`: Created/selected review ID\n- `userEmail`: Generated email for testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "tourId",
+      "value": ""
+    },
+    {
+      "key": "reviewId",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth & Users",
+      "description": "User authentication and profile management.",
+      "item": [
+        {
+          "name": "Signup",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('userEmail', 'user_' + Date.now() + '@test.com');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () { pm.response.to.have.status(201); });",
+                  "var res = pm.response.json();",
+                  "pm.test('Success envelope', function () { pm.expect(res.success).to.be.true; });",
+                  "if (res.token) { pm.collectionVariables.set('token', res.token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Test User\",\n    \"email\": \"{{userEmail}}\",\n    \"password\": \"test1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "signup"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "var res = pm.response.json();",
+                  "pm.test('Success envelope', function () { pm.expect(res.success).to.be.true; });",
+                  "if (res.token) { pm.collectionVariables.set('adminToken', res.token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@natours.io\",\n    \"password\": \"test1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tours",
+      "description": "Tour CRUD and Geospatial.",
+      "item": [
+        {
+          "name": "Get All Tours",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "var res = pm.response.json();",
+                  "pm.test('Success envelope', function () { pm.expect(res.success).to.be.true; });",
+                  "if (res.data && res.data.length > 0) { pm.collectionVariables.set('tourId', res.data[0].id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tours",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tours"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tour",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tours/{{tourId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tours",
+                "{{tourId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tours Within",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tours/tours-within/250/center/34.111745,-118.113491/unit/mi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tours",
+                "tours-within",
+                "250",
+                "center",
+                "34.111745,-118.113491",
+                "unit",
+                "mi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Distances",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tours/distances/34.111745,-118.113491/unit/mi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tours",
+                "distances",
+                "34.111745,-118.113491",
+                "unit",
+                "mi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tour Stats",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tours/tour-stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tours",
+                "tour-stats"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "description": "Review CRUD.",
+      "item": [
+        {
+          "name": "Get All Reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var res = pm.response.json();",
+                  "if (res.data && res.data.id) { pm.collectionVariables.set('reviewId', res.data.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"review\": \"Amazing tour!\",\n    \"rating\": 5,\n    \"tourId\": {{tourId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
