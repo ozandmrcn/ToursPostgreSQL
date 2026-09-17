@@ -25,7 +25,7 @@ const factory = require("./handlerFactory");
 exports.getTourStats = catchAsync(async (req, res, next) => {
   const stats = await prisma.$queryRaw`
     SELECT
-      UPPER(difficulty)          AS difficulty,
+      difficulty AS difficulty,
       COUNT(*)::int              AS "numTours",
       SUM("ratingsQuantity")::int AS "numRatings",
       AVG("ratingsAverage")::float8 AS "avgRating",
@@ -34,7 +34,7 @@ exports.getTourStats = catchAsync(async (req, res, next) => {
       MAX(price)::float8         AS "maxPrice"
     FROM tours
     WHERE "ratingsAverage" >= 4.0
-    GROUP BY UPPER(difficulty)
+    GROUP BY difficulty
     ORDER BY "avgPrice" ASC
   `;
 
@@ -187,15 +187,17 @@ exports.getDistances = catchAsync(async (req, res, next) => {
     SELECT DISTINCT
       t.name AS name,
       ROUND(
-        6371 * acos(
-          least(1.0, greatest(-1.0,
-            cos(radians(${Number(lat)})) *
-            cos(radians((t."startLocation" -> 'coordinates' -> 1)::float8)) *
-            cos(radians((t."startLocation" -> 'coordinates' -> 0)::float8) - radians(${Number(lng)})) +
-            sin(radians(${Number(lat)})) *
-            sin(radians((t."startLocation" -> 'coordinates' -> 1)::float8))
-          ))
-        ) * ${multiplier},
+        (
+          6371 * acos(
+            least(1.0, greatest(-1.0,
+              cos(radians(${Number(lat)})) *
+              cos(radians((t."startLocation" -> 'coordinates' -> 1)::float8)) *
+              cos(radians((t."startLocation" -> 'coordinates' -> 0)::float8) - radians(${Number(lng)})) +
+              sin(radians(${Number(lat)})) *
+              sin(radians((t."startLocation" -> 'coordinates' -> 1)::float8))
+            ))
+          ) * ${multiplier}
+        )::numeric,
         2
       ) AS distance
     FROM tours t

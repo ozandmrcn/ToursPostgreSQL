@@ -123,7 +123,6 @@ Tour.beforeCreate = (data) => {
     throw new AppError("A tour name must have less or equal then 40 characters", 400);
   if (d.name.length < 10)
     throw new AppError("A tour name must have more or equal then 10 characters", 400);
-  if (d.name.includes(" ")) throw new AppError("A tour name cannot contain spaces", 400);
   if (d.duration === undefined) throw new AppError("A tour must have a duration", 400);
   if (d.maxGroupSize === undefined) throw new AppError("A tour must have a group size", 400);
   if (!d.difficulty) throw new AppError("A tour must have a difficulty", 400);
@@ -199,8 +198,6 @@ Tour.beforeUpdate = (data) => {
     if (copy[f] !== undefined) out[f] = copy[f];
   });
 
-  if (out.name !== undefined && out.name.includes(" "))
-    throw new AppError("A tour name cannot contain spaces", 400);
   if (out.name !== undefined) out.slug = out.name.toLowerCase().split(" ").join("-");
   if (out.duration !== undefined) out.hour = out.duration * 24;
   if (out.priceDiscount !== undefined && out.price !== undefined && out.priceDiscount >= out.price)
